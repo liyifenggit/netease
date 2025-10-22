@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Musical - 专业级音乐播放器 | WebDAV云同步 | Apple Watch独立播放</title>
+    <meta name="description" content="Musical是一款专业级全平台音乐播放器，支持WebDAV实时监测、10频段专业音效、网易云/QQ/酷狗三大音源、Apple Watch独立播放、tvOS支持。">
+    <meta name="keywords" content="音乐播放器,WebDAV,Apple Watch,音效,网易云音乐,QQ音乐,酷狗音乐,tvOS,均衡器,在线音乐">
+    <meta name="author" content="Musical">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://apps.apple.com/us/app/musical/id6743794272">
+    <meta property="og:title" content="Musical - 专业级音乐播放器">
+    <meta property="og:description" content="业界首创WebDAV实时监测，10频段专业音效，支持Apple Watch独立播放和tvOS。">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://apps.apple.com/us/app/musical/id6743794272">
+    <meta property="twitter:title" content="Musical - 专业级音乐播放器">
+    <meta property="twitter:description" content="业界首创WebDAV实时监测，10频段专业音效，支持Apple Watch独立播放和tvOS。">
+    
+    <!-- Apple -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Musical">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow-x: hidden;
+        }
+
+        /* 导航栏 */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: #333;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: #667eea;
+        }
+
+        /* Hero 区域 */
+        .hero {
+            padding: 120px 2rem 80px;
+            text-align: center;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: fadeInUp 1s ease;
+        }
+
+        .hero .subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            animation: fadeInUp 1s ease 0.2s backwards;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            animation: fadeInUp 1s ease 0.4s backwards;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: white;
+            color: #667eea;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+
+        .btn-secondary:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        /* 特性区域 */
+        .features {
+            background: white;
+            padding: 80px 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 3rem;
+            color: #333;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            border-color: #667eea;
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .feature-card p {
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .feature-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        /* 平台支持区域 */
+        .platforms {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 80px 2rem;
+        }
+
+        .platform-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+
+        .platform-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+        }
+
+        .platform-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+        }
+
+        .platform-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .platform-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .platform-card ul {
+            list-style: none;
+            text-align: left;
+            color: #666;
+        }
+
+        .platform-card li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .platform-card li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        /* 技术亮点 */
+        .highlights {
+            background: white;
+            padding: 80px 2rem;
+        }
+
+        .highlight-item {
+            display: flex;
+            gap: 3rem;
+            align-items: center;
+            margin-bottom: 4rem;
+            animation: fadeInUp 1s ease;
+        }
+
+        .highlight-item:nth-child(even) {
+            flex-direction: row-reverse;
+        }
+
+        .highlight-content {
+            flex: 1;
+        }
+
+        .highlight-image {
+            flex: 1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            padding: 3rem;
+            color: white;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .highlight-image h3 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .highlight-image ul {
+            list-style: none;
+        }
+
+        .highlight-image li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .highlight-image li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        /* Footer */
+        .footer {
+            background: #1a1a2e;
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-links a {
+            color: white;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: #667eea;
+        }
+
+        /* 动画 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero .subtitle {
+                font-size: 1.2rem;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .highlight-item,
+            .highlight-item:nth-child(even) {
+                flex-direction: column;
+            }
+
+            .features-grid,
+            .platform-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 特殊效果 */
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .emoji {
+            font-style: normal;
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">🎵 Musical</div>
+            <ul class="nav-links">
+                <li><a href="#features">功能</a></li>
+                <li><a href="#platforms">平台支持</a></li>
+                <li><a href="#highlights">技术亮点</a></li>
+                <li><a href="#download">下载</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero 区域 -->
+    <section class="hero">
+        <h1>Musical</h1>
+        <p class="subtitle">专业级音乐播放器 · 全平台音乐体验</p>
+        <div class="cta-buttons">
+            <a href="https://apps.apple.com/us/app/musical/id6743794272" class="btn btn-primary" target="_blank">立即下载</a>
+            <a href="#features" class="btn btn-secondary">了解更多</a>
+        </div>
+    </section>
+
+    <!-- 核心功能 -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">核心功能</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <span class="feature-badge">🌟 独创功能</span>
+                    <div class="feature-icon">☁️</div>
+                    <h3>WebDAV 智能监测</h3>
+                    <p>业界首创的 WebDAV 服务器实时监测功能，自动同步音乐库更新。支持多服务器管理，断线自动重连，让你的音乐随时随地无缝同步。</p>
+                </div>
+
+                <div class="feature-card">
+                    <span class="feature-badge">🎧 专业级</span>
+                    <div class="feature-icon">🎛️</div>
+                    <h3>专业音频效果</h3>
+                    <p>真正的 10 频段 IIR 均衡器，vDSP 硬件加速，8 种专业预设音效。支持 360° 环绕、超重低音、清澈人声、HIFI 现场等多种模式，为你带来发烧级音质体验。</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🎵</div>
+                    <h3>三大在线音源</h3>
+                    <p>完整集成网易云音乐、QQ音乐、酷狗音乐。支持 Cookie 登录，畅享 VIP 音质。智能封面获取，在线歌词同步，搜索结果实时切换。</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">💬</div>
+                    <h3>网易云音乐评论</h3>
+                    <p>完整的评论系统，支持浏览、点赞、回复。楼中楼评论展开，热门评论排序，让你在听歌的同时参与音乐社区互动。</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3>智能封面管理</h3>
+                    <p>自动从在线音源获取高清封面，支持内存 + 磁盘双层缓存。渐变占位符生成，旋转动画效果，让你的音乐库更加精美。</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📤</div>
+                    <h3>分享与推荐</h3>
+                    <p>一键分享歌曲到社交平台，智能音乐推荐算法，基于播放历史的个性化推荐，发现更多你喜欢的音乐。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 平台支持 -->
+    <section id="platforms" class="platforms">
+        <div class="container">
+            <h2 class="section-title">全平台支持</h2>
+            <div class="platform-grid">
+                <div class="platform-card">
+                    <div class="platform-icon">📱</div>
+                    <h3>iPhone / iPad</h3>
+                    <ul>
+                        <li>原生 iOS 体验</li>
+                        <li>支持 iOS 14+</li>
+                        <li>深色模式适配</li>
+                        <li>小组件支持</li>
+                        <li>CarPlay 车载播放</li>
+                    </ul>
+                </div>
+
+                <div class="platform-card">
+                    <div class="platform-icon">⌚</div>
+                    <h3>Apple Watch</h3>
+                    <ul>
+                        <li><strong>配对模式</strong>：iPhone 遥控器</li>
+                        <li><strong>独立模式</strong>：在线音乐播放</li>
+                        <li>表盘复杂功能</li>
+                        <li>数字表冠控制</li>
+                        <li>离线歌曲同步</li>
+                    </ul>
+                </div>
+
+                <div class="platform-card">
+                    <div class="platform-icon">📺</div>
+                    <h3>Apple TV</h3>
+                    <ul>
+                        <li>tvOS 原生界面</li>
+                        <li>遥控器完美适配</li>
+                        <li>4K 封面显示</li>
+                        <li>家庭影院音效</li>
+                        <li>AirPlay 投屏</li>
+                    </ul>
+                </div>
+
+                <div class="platform-card">
+                    <div class="platform-icon">💻</div>
+                    <h3>Mac (敬请期待)</h3>
+                    <ul>
+                        <li>macOS 原生应用</li>
+                        <li>菜单栏快捷控制</li>
+                        <li>触控栏支持</li>
+                        <li>快捷键操作</li>
+                        <li>Handoff 无缝切换</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 技术亮点 -->
+    <section id="highlights" class="highlights">
+        <div class="container">
+            <h2 class="section-title">技术亮点</h2>
+
+            <div class="highlight-item">
+                <div class="highlight-content">
+                    <span class="feature-badge">⌚ Apple Watch 专属</span>
+                    <h3>双模式手表体验</h3>
+                    <p><strong class="gradient-text">配对模式 - 强大的遥控器</strong></p>
+                    <p>将 Apple Watch 变成 iPhone 的完美遥控器。实时显示播放信息，封面同步显示，音量、进度条精准控制。支持播放列表切换，下一曲/上一曲快速操作。</p>
+                    <br>
+                    <p><strong class="gradient-text">独立模式 - 独立的音乐播放器</strong></p>
+                    <p>脱离 iPhone 独立使用！直接在手表上搜索、播放网易云音乐、QQ音乐。支持蓝牙耳机连接，晨跑、健身时无需携带手机。完整的在线音乐库访问，随时随地畅听音乐。</p>
+                </div>
+                <div class="highlight-image">
+                    <h3><span class="emoji">⌚</span> Watch 独立播放</h3>
+                    <ul>
+                        <li>无需 iPhone，独立运行</li>
+                        <li>在线搜索 & 播放</li>
+                        <li>蓝牙耳机直连</li>
+                        <li>实时歌词显示</li>
+                        <li>表盘复杂功能快捷访问</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="highlight-item">
+                <div class="highlight-content">
+                    <span class="feature-badge">🎛️ 音频引擎</span>
+                    <h3>专业级音频处理</h3>
+                    <p>采用 <strong>MTAudioProcessingTap + vDSP</strong> 硬件加速技术，实现真正的频段分离均衡器。</p>
+                    <p><strong>10 频段独立调节</strong>：32Hz - 16kHz 全频段覆盖，每个频段独立的 IIR Biquad 滤波器，自适应 Q 值优化（低频温暖、高频清晰）。</p>
+                    <p><strong>性能优化</strong>：vDSP SIMD 向量化加速，CPU 占用 < 2%，处理延迟 < 5ms。支持立体声独立处理，双重削波保护（硬限幅 + 软饱和）。</p>
+                </div>
+                <div class="highlight-image">
+                    <h3><span class="emoji">🎧</span> 8 种预设音效</h3>
+                    <ul>
+                        <li>360° 环绕音效</li>
+                        <li>超重低音（+8dB 震撼低频）</li>
+                        <li>清澈人声（人声突出）</li>
+                        <li>HIFI 现场（真实音乐厅感）</li>
+                        <li>3D 音效</li>
+                        <li>动感电音</li>
+                        <li>摇滚</li>
+                        <li>复古唱片</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="highlight-item">
+                <div class="highlight-content">
+                    <span class="feature-badge">☁️ 独创技术</span>
+                    <h3>WebDAV 实时监测</h3>
+                    <p>业界首创的 <strong>WebDAV 服务器实时监测系统</strong>，让你的私有云音乐库像本地一样方便。</p>
+                    <p><strong>智能监测</strong>：自动检测服务器文件变化，新增歌曲秒级同步，删除文件自动清理。支持文件修改检测（MD5 校验），确保音乐库始终最新。</p>
+                    <p><strong>断线重连</strong>：网络波动自动重试，支持后台静默同步，多服务器并行监测。</p>
+                    <p><strong>高效缓存</strong>：智能预加载算法，内存 + 磁盘双层缓存，流畅的播放体验。</p>
+                </div>
+                <div class="highlight-image">
+                    <h3><span class="emoji">☁️</span> WebDAV 优势</h3>
+                    <ul>
+                        <li>支持群晖、NextCloud 等</li>
+                        <li>完全掌控你的音乐数据</li>
+                        <li>无限制容量</li>
+                        <li>局域网高速传输</li>
+                        <li>多设备无缝同步</li>
+                        <li>隐私安全保障</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="highlight-item">
+                <div class="highlight-content">
+                    <span class="feature-badge">🎵 在线音源</span>
+                    <h3>三大平台完整集成</h3>
+                    <p><strong>网易云音乐</strong>：完整评论系统，支持点赞回复，热门评论排序，楼中楼展开。歌词同步显示，MV 播放，歌手电台。</p>
+                    <p><strong>QQ 音乐</strong>：海量曲库，高品质音源，独家版权歌曲。支持 Cookie 登录，VIP 会员权益。</p>
+                    <p><strong>酷狗音乐</strong>：智能推荐，歌单分享，精准搜索。无损音质支持，专业音效增强。</p>
+                    <p><strong>Cookie 登录</strong>：支持扫码登录，自动保存会话，享受 VIP 音质和个性化推荐。</p>
+                </div>
+                <div class="highlight-image">
+                    <h3><span class="emoji">🎼</span> 音质支持</h3>
+                    <ul>
+                        <li>无损品质（FLAC）</li>
+                        <li>较高品质（320kbps）</li>
+                        <li>标准品质（128kbps）</li>
+                        <li>自动降级重试</li>
+                        <li>流量节省模式</li>
+                        <li>封面高清加载</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 下载区域 -->
+    <section id="download" class="hero" style="min-height: 60vh; padding: 60px 2rem;">
+        <h2 class="section-title" style="color: white; font-size: 3rem;">准备好了吗？</h2>
+        <p class="subtitle">立即下载 Musical，开启你的专业音乐之旅</p>
+        <div class="cta-buttons">
+            <a href="https://apps.apple.com/us/app/musical/id6743794272" class="btn btn-primary" target="_blank">App Store 下载</a>
+            <a href="https://apps.apple.com/us/app/musical/id6743794272" class="btn btn-secondary" target="_blank">立即体验</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-links">
+            <a href="#">使用条款</a>
+            <a href="#">隐私政策</a>
+            <a href="#">帮助中心</a>
+            <a href="#">联系我们</a>
+        </div>
+        <p>&copy; 2025 Musical. All rights reserved.</p>
+        <p style="margin-top: 1rem; opacity: 0.7;">用心打造的音乐播放器 · Made with ❤️</p>
+    </footer>
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Musical",
+        "description": "专业级音乐播放器，支持WebDAV实时监测、10频段专业音效、网易云/QQ/酷狗三大音源、Apple Watch独立播放、tvOS支持",
+        "applicationCategory": "MusicApplication",
+        "operatingSystem": "iOS 14.0+, watchOS 7.0+, tvOS 14.0+",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "5",
+            "ratingCount": "1"
+        },
+        "author": {
+            "@type": "Organization",
+            "name": "Musical"
+        },
+        "downloadUrl": "https://apps.apple.com/us/app/musical/id6743794272",
+        "softwareVersion": "19.2",
+        "fileSize": "50MB",
+        "screenshot": [],
+        "featureList": [
+            "WebDAV实时监测",
+            "10频段专业音效",
+            "网易云音乐评论系统",
+            "三大在线音源集成",
+            "Apple Watch独立播放",
+            "tvOS支持",
+            "智能封面管理",
+            "分享与推荐"
+        ]
+    }
+    </script>
+
+    <script>
+        // 平滑滚动
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // 滚动动画
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -100px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.animation = 'fadeInUp 1s ease';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.feature-card, .platform-card, .highlight-item').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>
