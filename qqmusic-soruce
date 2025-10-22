@@ -1,0 +1,497 @@
+// QQ音乐音源 - iOS JavaScriptCore 兼容版本
+// 纯 ES5 语法，不使用解构赋值和混淆代码
+
+// 音源信息
+var sourceInfo = {
+    id: 'qqmusic',
+    name: 'QQ音乐',
+    version: '1.0.0',
+    author: 'Musical App',
+    description: 'QQ音乐在线音源，支持搜索、播放、歌词',
+    homepage: 'https://y.qq.com',
+    supportedTypes: ['song'],
+    supportedQualities: ['standard', 'high', 'lossless']
+};
+
+// API 基础配置 - 使用更稳定的域名
+var API_BASE = 'https://u.y.qq.com/cgi-bin/musicu.fcg';
+var API_BASE_BACKUP = 'https://c.y.qq.com/soso/fcgi-bin/client_search_cp'; // 备用搜索API
+var API_CDN = 'https://ws.stream.qqmusic.qq.com';
+var API_CDN_BACKUP = 'https://isure.stream.qqmusic.qq.com'; // 备用CDN
+var API_LYRIC = 'https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg';
+
+// 通用请求头
+var COMMON_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 QQ/8.8.0',
+    'Referer': 'https://y.qq.com',
+    'Origin': 'https://y.qq.com',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'zh-CN,zh;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br'
+};
+
+// 获取用户Cookie（如果已登录）
+function getQQCookieIfAvailable() {
+    try {
+        if (typeof getQQCookie === 'function') {
+            var cookie = getQQCookie();
+            if (cookie && cookie.length > 0) {
+                console.log('🍪 [QQ音乐] 使用登录Cookie');
+                return cookie;
+            }
+        }
+    } catch (error) {
+        console.log('⚠️ [QQ音乐] 获取Cookie失败: ' + error.message);
+    }
+    return '';
+}
+
+// 构建请求头（包含Cookie）
+function buildHeaders() {
+    var headers = {};
+    // 复制通用请求头
+    for (var key in COMMON_HEADERS) {
+        headers[key] = COMMON_HEADERS[key];
+    }
+    // 如果有Cookie，添加到请求头
+    var cookie = getQQCookieIfAvailable();
+    if (cookie) {
+        headers['Cookie'] = cookie;
+    }
+    return headers;
+}
+
+// 搜索音乐
+function search(keyword, page, type) {
+    return new Promise(function(resolve, reject) {
+        var limit = 50; // 增加到50首，提供更多搜索结果
+        var offset = (page - 1) * limit;
+        
+        // 构建QQ音乐搜索请求体
+        var reqBody = {
+            comm: {
+                ct: '19',
+                cv: '1859',
+                uin: '0'
+            },
+            music: {
+                method: 'DoSearchForQQMusicDesktop',
+                module: 'music.search.SearchCgiService',
+                param: {
+                    num_per_page: limit,
+                    page_num: page,
+                    query: keyword,
+                    search_type: 0
+                }
+            }
+        };
+        
+        var url = API_BASE + '?data=' + encodeURIComponent(JSON.stringify(reqBody));
+        
+        httpRequest(url, {
+            method: 'GET',
+            headers: buildHeaders(), // 包含Cookie
+            timeout: 10000 // 10秒超时
+        }).then(function(response) {
+            try {
+                var data = JSON.parse(response.body);
+                
+                if (data.code !== 0 || !data.music || !data.music.data) {
+                    reject(new Error('搜索失败: ' + (data.message || '未知错误')));
+                    return;
+                }
+                
+                var result = data.music.data;
+                var body = result.body;
+                
+                if (!body || !body.song || !body.song.list) {
+                    resolve({
+                        list: [],
+                        total: 0,
+                        page: page,
+                        hasMore: false
+                    });
+                    return;
+                }
+                
+                // 转换歌曲列表
+                var songs = body.song.list.map(function(song) {
+                    // 获取歌手名
+                    var artists = song.singer || [];
+                    var artistNames = artists.map(function(ar) {
+                        return ar.name;
+                    });
+                    var artist = artistNames.join(' / ') || '未知歌手';
+                    
+                    // 获取专辑名
+                    var album = (song.album && song.album.name) || '未知专辑';
+                    
+                    // 获取封面
+                    var picUrl = '';
+                    if (song.album && song.album.mid) {
+                        var albumMid = song.album.mid;
+                        picUrl = 'https://y.gtimg.cn/music/photo_new/T002R300x300M000' + albumMid + '.jpg';
+                    }
+                    
+                    if (!picUrl && artists.length > 0 && artists[0].mid) {
+                        var singerMid = artists[0].mid;
+                        picUrl = 'https://y.gtimg.cn/music/photo_new/T001R300x300M000' + singerMid + '.jpg';
+                    }
+                    
+                    var duration = song.interval || 0;
+                    
+                    // 获取歌曲mid（最重要的字段）
+                    var songMid = song.mid || song.songmid || '';
+                    
+                    // 调试日志
+                    if (picUrl) {
+                        console.log('✅ 封面: ' + song.name + ' -> ' + picUrl);
+                    } else {
+                        console.log('⚠️ 无封面: ' + song.name);
+                    }
+                    
+                    // 检查mid是否存在
+                    if (!songMid) {
+                        console.log('⚠️ [QQ音乐] 歌曲缺少mid: ' + song.name + ', id=' + song.id);
+                    }
+                    
+                    return {
+                        id: String(song.id),
+                        name: song.name || song.title || '未知歌曲',
+                        artist: artist,
+                        album: album,
+                        duration: duration,
+                        picUrl: picUrl,
+                        metadata: {
+                            mid: songMid,
+                            albumMid: (song.album && song.album.mid) || '',
+                            mediaId: song.file ? song.file.media_mid : '',
+                            // 保存原始song对象的关键字段用于调试
+                            songId: song.id || '',
+                            songName: song.name || ''
+                        }
+                    };
+                });
+                
+                var total = body.song.total || songs.length;
+                var hasMore = (offset + songs.length) < total;
+                
+                resolve({
+                    list: songs,
+                    total: total,
+                    page: page,
+                    hasMore: hasMore
+                });
+                
+            } catch (error) {
+                reject(new Error('解析搜索结果失败: ' + error.message));
+            }
+        }).catch(function(error) {
+            // 提供更详细的错误信息
+            var errorMsg = '网络请求失败: ' + error.message;
+            
+            // 检查是否是DNS错误
+            if (error.message.indexOf('hostname') > -1 || error.message.indexOf('DNS') > -1 || error.message.indexOf('域名') > -1 || error.message.indexOf('host') > -1) {
+                errorMsg = 'DNS解析失败，请检查网络连接或稍后重试。可能原因：1) 网络连接问题 2) API域名限制访问 3) 需要特殊网络环境';
+                console.log('⚠️ QQ音乐DNS解析失败');
+                console.log('建议：检查网络连接或切换网络（WiFi/移动数据）');
+            }
+            
+            reject(new Error(errorMsg));
+        });
+    });
+}
+
+// 辅助函数：通过歌曲ID获取详细信息（包括mid）
+function getSongDetailById(songId) {
+    return new Promise(function(resolve, reject) {
+        var reqBody = {
+            comm: { ct: '24', cv: '0', uin: '0' },
+            req_0: {
+                module: 'music.trackInfo.UniformRuleCtrl',
+                method: 'CgiGetTrackInfo',
+                param: {
+                    ids: [parseInt(songId)],
+                    types: [0]
+                }
+            }
+        };
+        
+        var url = API_BASE + '?data=' + encodeURIComponent(JSON.stringify(reqBody));
+        
+        httpRequest(url, {
+            method: 'GET',
+            headers: COMMON_HEADERS,
+            timeout: 10000
+        }).then(function(response) {
+            try {
+                var data = JSON.parse(response.body);
+                if (data.code === 0 && data.req_0 && data.req_0.data && data.req_0.data.tracks && data.req_0.data.tracks.length > 0) {
+                    var track = data.req_0.data.tracks[0];
+                    resolve(track.mid || '');
+                } else {
+                    resolve('');
+                }
+            } catch (e) {
+                resolve('');
+            }
+        }).catch(function() {
+            resolve('');
+        });
+    });
+}
+
+// 获取播放 URL
+function getMusicUrl(songInfo, quality) {
+    return new Promise(function(resolve, reject) {
+        // 详细的参数检查和日志
+        console.log('🔍 [QQ音乐] getMusicUrl 参数:');
+        console.log('   - songInfo.id: ' + (songInfo.id || '无'));
+        console.log('   - songInfo.name: ' + (songInfo.name || '无'));
+        console.log('   - songInfo.metadata: ' + (songInfo.metadata ? '有' : '无'));
+        
+        if (!songInfo.metadata) {
+            console.log('❌ [QQ音乐] metadata缺失');
+            reject(new Error('歌曲元数据缺失'));
+            return;
+        }
+        
+        var songMid = songInfo.metadata.mid || '';
+        console.log('   - metadata.mid: ' + (songMid || '空'));
+        
+        if (!songMid) {
+            // 尝试通过歌曲ID获取mid
+            console.log('🔄 [QQ音乐] mid为空，尝试通过歌曲详情API获取...');
+            
+            getSongDetailById(songInfo.id).then(function(mid) {
+                if (mid) {
+                    console.log('✅ [QQ音乐] 成功获取mid: ' + mid);
+                    // 更新songInfo中的mid
+                    songInfo.metadata.mid = mid;
+                    // 递归调用自己，这次应该有mid了
+                    getMusicUrl(songInfo, quality).then(resolve).catch(reject);
+                } else {
+                    console.log('❌ [QQ音乐] 详情API也无法获取mid');
+                    console.log('   可用字段: ' + JSON.stringify(songInfo.metadata).substring(0, 200));
+                    reject(new Error('歌曲ID无效（mid为空），建议尝试其他音乐源'));
+                }
+            }).catch(function(error) {
+                console.log('❌ [QQ音乐] 获取详情失败: ' + error.message);
+                reject(new Error('歌曲ID无效（mid为空）'));
+            });
+            return;
+        }
+        
+        // QQ音乐文件类型映射（使用C400格式，兼容性更好）
+        var fileType = 'C400'; // 默认使用C400 (m4a格式)
+        var fileExt = '.m4a';
+        
+        if (quality === 'lossless') {
+            fileType = 'F000';
+            fileExt = '.flac';
+        } else if (quality === 'high') {
+            fileType = 'M800';
+            fileExt = '.mp3';
+        }
+        
+        var guid = generateGuid();
+        var filename = fileType + songMid + fileExt;
+        
+        var reqBody = {
+            comm: { 
+                ct: '24', 
+                cv: '0',
+                uin: '0'
+            },
+            req_0: {
+                module: 'vkey.GetVkeyServer',
+                method: 'CgiGetVkey',
+                param: {
+                    guid: guid,
+                    songmid: [songMid],
+                    songtype: [0],
+                    uin: '0',
+                    loginflag: 1,
+                    platform: '20',
+                    filename: [filename]
+                }
+            }
+        };
+        
+        var url = API_BASE + '?data=' + encodeURIComponent(JSON.stringify(reqBody));
+        
+        httpRequest(url, {
+            method: 'GET',
+            headers: buildHeaders(), // 包含Cookie
+            timeout: 10000 // 10秒超时
+        }).then(function(response) {
+            try {
+                var data = JSON.parse(response.body);
+                
+                // 调试日志
+                console.log('🔍 [QQ音乐] vkey响应 code: ' + data.code);
+                
+                if (data.code !== 0 || !data.req_0 || !data.req_0.data) {
+                    console.log('❌ [QQ音乐] vkey获取失败，响应: ' + JSON.stringify(data).substring(0, 200));
+                    reject(new Error('获取播放链接失败'));
+                    return;
+                }
+                
+                var vkeyData = data.req_0.data;
+                
+                if (!vkeyData.midurlinfo || vkeyData.midurlinfo.length === 0) {
+                    console.log('⚠️ [QQ音乐] midurlinfo为空');
+                    reject(new Error('该歌曲暂无版权或无法播放'));
+                    return;
+                }
+                
+                var midUrlInfo = vkeyData.midurlinfo[0];
+                console.log('🔍 [QQ音乐] purl: ' + (midUrlInfo.purl || '空'));
+                console.log('🔍 [QQ音乐] errtype: ' + (midUrlInfo.errtype || '无'));
+                
+                if (!midUrlInfo.purl) {
+                    // 检查具体的错误类型
+                    if (midUrlInfo.errtype) {
+                        console.log('❌ [QQ音乐] 错误类型: ' + midUrlInfo.errtype);
+                    }
+                    reject(new Error('该歌曲暂无版权或无法播放'));
+                    return;
+                }
+                
+                var sip = vkeyData.sip && vkeyData.sip.length > 0 ? vkeyData.sip[0] : API_CDN;
+                var playUrl = sip + midUrlInfo.purl;
+                
+                // iOS ATS要求使用HTTPS，强制转换HTTP为HTTPS
+                if (playUrl.indexOf('http://') === 0) {
+                    playUrl = playUrl.replace('http://', 'https://');
+                    console.log('🔒 [QQ音乐] 已将HTTP转换为HTTPS以符合ATS要求');
+                }
+                
+                console.log('🔗 [QQ音乐] 最终播放URL: ' + playUrl.substring(0, 100) + '...');
+                
+                // 根据实际文件类型判断格式和音质
+                var actualQuality = quality;
+                var format = 'mp3';
+                var br = 128000;
+                
+                if (fileType === 'F000') {
+                    format = 'flac';
+                    br = 999000;
+                    actualQuality = 'lossless';
+                } else if (fileType === 'M800') {
+                    format = 'mp3';
+                    br = 320000;
+                    actualQuality = 'high';
+                } else if (fileType === 'C400') {
+                    format = 'm4a';
+                    br = 128000;
+                    actualQuality = 'standard';
+                } else if (fileType === 'M500') {
+                    format = 'mp3';
+                    br = 128000;
+                    actualQuality = 'standard';
+                }
+                
+                console.log('✅ [QQ音乐] 播放URL获取成功，格式: ' + format + ', 音质: ' + actualQuality);
+                
+                resolve({
+                    url: playUrl,
+                    quality: actualQuality,
+                    format: format,
+                    size: 0,
+                    br: br,
+                    expiresIn: 3600
+                });
+                
+            } catch (error) {
+                reject(new Error('解析播放链接失败: ' + error.message));
+            }
+        }).catch(function(error) {
+            reject(new Error('网络请求失败: ' + error.message));
+        });
+    });
+}
+
+// 获取歌词
+function getLyric(songInfo) {
+    return new Promise(function(resolve, reject) {
+        var songMid = songInfo.metadata.mid || '';
+        
+        var url = API_LYRIC + '?songmid=' + songMid + '&g_tk=5381&loginUin=0&hostUin=0&format=json&inCharset=utf8&outCharset=utf-8&notice=0&platform=yqq&needNewCode=0';
+        
+        httpRequest(url, {
+            method: 'GET',
+            headers: buildHeaders(), // 包含Cookie
+            timeout: 10000 // 10秒超时
+        }).then(function(response) {
+            try {
+                var data = JSON.parse(response.body);
+                
+                if (data.retcode !== 0) {
+                    resolve({ lyric: '[00:00.00]暂无歌词', translatedLyric: null });
+                    return;
+                }
+                
+                var lyric = data.lyric ? decodeBase64(data.lyric) : '[00:00.00]暂无歌词';
+                var trans = data.trans ? decodeBase64(data.trans) : null;
+                
+                resolve({
+                    lyric: lyric,
+                    translatedLyric: trans
+                });
+                
+            } catch (error) {
+                resolve({ lyric: '[00:00.00]暂无歌词', translatedLyric: null });
+            }
+        }).catch(function() {
+            resolve({ lyric: '[00:00.00]暂无歌词', translatedLyric: null });
+        });
+    });
+}
+
+// 获取封面 URL
+function getPicUrl(songInfo, size) {
+    return new Promise(function(resolve) {
+        var picUrl = songInfo.picUrl || '';
+        
+        if (!picUrl) {
+            resolve('');
+            return;
+        }
+        
+        var sizeParam = '300x300';
+        if (size === 'small') {
+            sizeParam = '150x150';
+        } else if (size === 'medium') {
+            sizeParam = '500x500';
+        } else if (size === 'large') {
+            sizeParam = '800x800';
+        }
+        
+        picUrl = picUrl.replace(/R\d+x\d+M/, 'R' + sizeParam + 'M');
+        
+        resolve(picUrl);
+    });
+}
+
+// 辅助函数
+function generateGuid() {
+    var result = '';
+    for (var i = 0; i < 32; i++) {
+        result += Math.floor(Math.random() * 16).toString(16);
+    }
+    return result;
+}
+
+function decodeBase64(str) {
+    try {
+        if (typeof atob !== 'undefined') {
+            return atob(str);
+        }
+        return str;
+    } catch (e) {
+        return str;
+    }
+}
+
+console.log('✅ QQ音乐音源加载成功！');
