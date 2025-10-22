@@ -17,10 +17,26 @@ var sourceInfo = {
 var API_BASE = 'https://music.163.com/api';
 var API_WEAPI = 'https://music.163.com/weapi';
 
+// 获取用户Cookie（如果已登录）
+function getUserCookieIfAvailable() {
+    try {
+        if (typeof getUserCookie === 'function') {
+            var cookie = getUserCookie();
+            if (cookie && cookie.length > 0) {
+                console.log('🍪 [网易云] 使用登录Cookie');
+                return cookie;
+            }
+        }
+    } catch (error) {
+        console.log('⚠️ [网易云] 获取Cookie失败: ' + error.message);
+    }
+    return '';
+}
+
 // 搜索音乐
 function search(keyword, page, type) {
     return new Promise(function(resolve, reject) {
-        var limit = 30;
+        var limit = 50; // 增加到50首，提供更多搜索结果
         var offset = (page - 1) * limit;
         
         // 使用网易云搜索 API
@@ -39,13 +55,22 @@ function search(keyword, page, type) {
         
         var fullUrl = url + '?' + queryString;
         
+        // 构建请求头
+        var headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Referer': 'https://music.163.com',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        };
+        
+        // 如果有Cookie，添加到请求头
+        var cookie = getUserCookieIfAvailable();
+        if (cookie) {
+            headers['Cookie'] = cookie;
+        }
+        
         httpRequest(fullUrl, {
             method: 'GET',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-                'Referer': 'https://music.163.com',
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
+            headers: headers
         }).then(function(response) {
             try {
                 var data = JSON.parse(response.body);
@@ -66,6 +91,15 @@ function search(keyword, page, type) {
                     return;
                 }
                 
+                // 调试：打印第一首歌的完整数据结构（包含album完整信息）
+                if (result.songs.length > 0) {
+                    var firstSong = result.songs[0];
+                    console.log('🔍 [网易云] 第一首歌名: ' + firstSong.name);
+                    if (firstSong.album) {
+                        console.log('🔍 [网易云] album完整数据: ' + JSON.stringify(firstSong.album));
+                    }
+                }
+                
                 // 转换歌曲列表
                 var songs = result.songs.map(function(song) {
                     // 获取歌手名
@@ -78,27 +112,40 @@ function search(keyword, page, type) {
                     // 获取专辑名
                     var album = (song.album && song.album.name) || '未知专辑';
                     
-                    // 获取封面（优先级：album.picUrl > album.blurPicUrl > 专辑详情API > 歌手头像）
+                    // 获取封面
                     var picUrl = '';
                     if (song.album) {
-                        picUrl = song.album.picUrl || song.album.blurPicUrl || song.album.pic_str || '';
+                        // 优先使用 picUrl
+                        picUrl = song.album.picUrl || song.album.blurPicUrl || '';
                         
-                        // 如果专辑封面为空但有专辑ID，可以后续调用专辑详情API获取
-                        // 专辑详情API: https://music.163.com/api/album/{albumId}
-                        // 但这会增加额外的网络请求，暂不实现
-                        // 留待播放时或下载时按需获取
+                        // 如果没有 picUrl，尝试使用 picId 拼接（网易云API格式）
+                        if (!picUrl && song.album.picId) {
+                            // 网易云封面API: ?param=宽x高
+                            picUrl = 'https://music.163.com/api/img/blur/' + song.album.picId + '?param=300y300';
+                            console.log('🖼️ [网易云] 使用picId生成封面: ' + song.name + ' (picId: ' + song.album.picId + ')');
+                        }
+                        
+                        // 如果还是没有，尝试其他字段
+                        if (!picUrl) {
+                            picUrl = song.album.pic_str || song.album.coverImgUrl || '';
+                        }
                     }
                     
-                    // 如果专辑封面为空，尝试使用歌手头像
-                    if (!picUrl && artists.length > 0) {
-                        picUrl = artists[0].picUrl || artists[0].img1v1Url || '';
+                    // 如果专辑封面为空，尝试song对象直接的封面字段
+                    if (!picUrl) {
+                        picUrl = song.picUrl || song.coverUrl || song.albumPic || '';
+                    }
+                    
+                    // 最后才使用歌手头像（避免所有歌曲都用同一个默认头像）
+                    if (!picUrl && artists.length > 0 && artists[0].picUrl) {
+                        picUrl = artists[0].picUrl;
                     }
                     
                     // 调试：打印封面 URL
                     if (picUrl) {
-                        console.log('✅ 封面: ' + song.name + ' -> ' + picUrl);
+                        console.log('✅ [网易云] 封面: ' + song.name + ' -> ' + picUrl);
                     } else {
-                        console.log('⚠️ 无封面: ' + song.name + ' (专辑: ' + album + ')');
+                        console.log('⚠️ [网易云] 无封面: ' + song.name + ' (专辑: ' + album + ')');
                     }
                     
                     // 时长（毫秒转秒）
@@ -163,12 +210,21 @@ function getMusicUrl(songInfo, quality) {
         
         var fullUrl = url + '?' + queryString;
         
+        // 构建请求头
+        var headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Referer': 'https://music.163.com'
+        };
+        
+        // 如果有Cookie，添加到请求头
+        var cookie = getUserCookieIfAvailable();
+        if (cookie) {
+            headers['Cookie'] = cookie;
+        }
+        
         httpRequest(fullUrl, {
             method: 'GET',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-                'Referer': 'https://music.163.com'
-            }
+            headers: headers
         }).then(function(response) {
             try {
                 var data = JSON.parse(response.body);
@@ -244,12 +300,21 @@ function getLyric(songInfo) {
         
         var fullUrl = url + '?' + queryString;
         
+        // 构建请求头
+        var headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Referer': 'https://music.163.com'
+        };
+        
+        // 如果有Cookie，添加到请求头
+        var cookie = getUserCookieIfAvailable();
+        if (cookie) {
+            headers['Cookie'] = cookie;
+        }
+        
         httpRequest(fullUrl, {
             method: 'GET',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-                'Referer': 'https://music.163.com'
-            }
+            headers: headers
         }).then(function(response) {
             try {
                 var data = JSON.parse(response.body);
